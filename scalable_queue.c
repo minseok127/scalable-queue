@@ -7,12 +7,43 @@
 #include "atomsnap.h"
 #include "scalable_queue.h"
 
+/*
+ * scq_node - Linked list node
+ * @next: pointer to the next inserted node
+ * @datum: 8 bytes scalar or pointer
+ * @is_deququed: flag indicating whether the node is dequeued or not
+ *
+ * When scq_enqueue is called, an scq_node is allocated using malloc and
+ * inserted into the linked list queue. When scq_dequeue is called, the
+ * is_dequeued flag is set, and the memory is freed based on RCU (Read-Copy Update).
+ */
 struct scq_node {
 	struct scq_node *next;
 	void *datum;
 	_Atomic int is_dequeued;
 };
 
+/*
+ * scq_tail_version - Data structure to cover the lifetime of the nodes.
+ * @version: atomsnap_version to manage grace-period
+ * @head_version_prev: previously created tail version
+ * @head_version_next: next head version
+ * @tail_node: most recent node covered the lifetime by this head verison
+ * @head_node: oldest node covered the lifetime by this head version
+ *
+ * scq_nodes are managed as a linked list, and the head of the list is managed
+ * in an RCU-like manner. This means that when moving the head, intermediate
+ * nodes are not immediately freed but are given a grace period, which is
+ * managed using the atomsnap library.
+ *
+ * When the tail is updated, a range of nodes covering the lifetime of the
+ * previous tail is created. If this range is at the end of the linked list, it
+ * indicates that other threads no longer traverse this range of nodes.
+ *
+ * To verify this, each tail version is also linked via a pointer, and
+ * this pointer is used to determine whether the current version represents the
+ * last segment of the linked list.
+ */
 struct scq_head_version {
 	struct atomsnap_version version;
 	struct scq_head_version *head_version_prev;
@@ -21,12 +52,22 @@ struct scq_head_version {
 	struct scq_node *head_node;
 };
 
+/*
+ * scalable_queue - main data structure to manage queue
+ * @tail: point where a new node is inserted into the linked list
+ * @head: point where the oldest node is located
+ * @head_init_flag: whether or not the head is initialized
+ *
+ * Unlike the tail of the linked list, the head is managed in an RCU-like
+ * manner. So the atomsnap library is used.
+ */
 struct scalable_queue {
 	struct scq_node *tail;
 	struct atomsnap_gate *head;
 	_Atomic int head_init_flag;
 };
 
+/* atomsnap_make_version() will call this function */
 struct atomsnap_version *scq_head_version_alloc(void *)
 {
 	struct scq_head_version *head_version
@@ -34,6 +75,12 @@ struct atomsnap_version *scq_head_version_alloc(void *)
 	return (struct atomsnap_version *)head_version;
 }
 
+/* 
+ * The last thread that releases the reference to the head version is
+ * responsible for calling this function.
+ *
+ * See the comments of the struct scq_head_version and adjust_head().
+ */
 #define HEAD_VERSION_RELEASE_MASK (0x8000000000000000ULL)
 void scq_head_version_free(struct atomsnap_version *version)
 {
@@ -79,6 +126,50 @@ free_head_version:
 	}
 }
 
+/*
+ * adjust_head - Try to move the head of queue
+ * @scq: pointer of the scalable_queue
+ * @prev_head_version: previous head version of the queue
+ * @new_haed_node: the linked list node to set the new head
+ * @tail_node_of_prev_head_version: previous linked list node of the new head
+ *
+ * Calling atomsnap_compare_exchange_version() in this function starts the grace
+ * period for the previous head version. The last thread to release this old
+ * head version will execute aru_tail_version_free().
+ *
+ * The reference to the old head version is released after this function
+ * returns. This ensures that the deallocation for this old version will not be
+ * executed until at least that point. So it is safe to link the old version
+ * with the newly created version in here.
+ */
+static void adjust_head(struct scalable_queue *scq,
+	struct scq_head_version *prev_head_version, struct scq_node *new_head_node,
+	struct scq_node *tail_node_of_prev_head_version)
+{	
+	struct scq_head_version *new_head_version
+		= (struct scq_head_version *)atomsnap_make_version(scq->head, NULL);
+
+	new_head_version->head_version_prev = prev_head_version;
+	new_head_version->head_version_next = NULL;
+
+	new_head_version->tail_node = NULL;
+	new_head_version->head_node = new_head_node;
+
+	if (!atomsnap_compare_exchange_version(scq->head,
+			(struct atomsnap_version *)prev_head_version,
+			(struct atomsnap_version *)new_head_version)) {
+		free(new_head_version);
+		return;
+	}
+
+	__sync_synchronize();
+	atomic_store(&prev_head_version->head_version_next, new_head_version);
+	atomic_store(&prev_head_version->tail_node, tail_node_of_prev_head_version);
+}
+
+/*
+ * Returns pointer to an scalable_queue, or NULL on failure.
+ */
 struct scalable_queue *scq_init(void)
 {
 	struct atomsnap_init_context ctx = {
@@ -101,6 +192,9 @@ struct scalable_queue *scq_init(void)
 	return scq;
 }
 
+/*
+ * Destroy the given scalable_queue.
+ */
 void scq_destroy(struct scalable_queue *scq)
 {
 	if (scq == NULL) {
@@ -116,6 +210,9 @@ void scq_destroy(struct scalable_queue *scq)
 	free(scq);
 }
 
+/*
+ * Enqueue the given datum into the queue.
+ */
 void scq_enqueue(struct scalable_queue *scq, void *datum)
 {
 	struct scq_node *node, *prev_tail;
@@ -143,31 +240,10 @@ void scq_enqueue(struct scalable_queue *scq, void *datum)
 	}
 }
 
-static void adjust_head(struct scalable_queue *scq,
-	struct scq_head_version *prev_head_version, struct scq_node *new_head_node,
-	struct scq_node *tail_node_of_prev_head_version)
-{	
-	struct scq_head_version *new_head_version
-		= (struct scq_head_version *)atomsnap_make_version(scq->head, NULL);
-
-	new_head_version->head_version_prev = prev_head_version;
-	new_head_version->head_version_next = NULL;
-
-	new_head_version->tail_node = NULL;
-	new_head_version->head_node = new_head_node;
-
-	if (!atomsnap_compare_exchange_version(scq->head,
-			(struct atomsnap_version *)prev_head_version,
-			(struct atomsnap_version *)new_head_version)) {
-		free(new_head_version);
-		return;
-	}
-
-	__sync_synchronize();
-	atomic_store(&prev_head_version->head_version_next, new_head_version);
-	atomic_store(&prev_head_version->tail_node, tail_node_of_prev_head_version);
-}
-
+/*
+ * Dequeue the datum from the scalable_queue.
+ * Return NULL if there is no data.
+ */
 void *scq_dequeue(struct scalable_queue *scq)
 {
 	struct scq_head_version *head_version = NULL;
@@ -175,6 +251,7 @@ void *scq_dequeue(struct scalable_queue *scq)
 	void *datum = NULL;
 	bool found = false;
 
+	/* Not yet initialized */
 	if (atomic_load(&scq->head_init_flag) == 0)
 		return NULL;
 	
@@ -185,6 +262,14 @@ retry:
 
 	node = head_version->head_node;
 
+	/* 
+	 * If the tail_node of the head_version is not NULL, it means that this head
+	 * has already become an old version. Therefore, it's better to start from a
+	 * new version.
+	 *
+	 * If the node becomes NULL before finding the data, it means the search has
+	 * reached the tail of the queue without finding the data.
+	 */
 	while (node != NULL && atomic_load(&head_version->tail_node) == NULL) {
 		if (atomic_load(&node->is_dequeued) == 0) {
 			if (atomic_exchange(&node->is_dequeued, 1) == 0) {
