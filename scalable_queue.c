@@ -59,6 +59,7 @@ free_head_version:
 	while (node != head_version->tail_node) {
 		node = node->next;
 		free(prev_node);
+		prev_node = node;
 	}
 	free(head_version->tail_node);
 

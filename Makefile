@@ -4,7 +4,7 @@ CFLAGS_DEBUG = -Wall -Wextra -O0 -g -pg -std=c11 -fPIC
 AR = ar
 RANLIB = ranlib
 
-BUILD_MODE ?= debug
+BUILD_MODE ?= release
 
 ifeq ($(BUILD_MODE), release)
 	CFLAGS = $(CFLAGS_RELEASE)
