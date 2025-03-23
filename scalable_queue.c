@@ -185,7 +185,7 @@ retry:
 
 	node = head_version->head_node;
 
-	while (node != NULL && node != atomic_load(&head_version->tail_node)) {
+	while (node != NULL && atomic_load(&head_version->tail_node) == NULL) {
 		if (atomic_load(&node->is_dequeued) == 0) {
 			if (atomic_exchange(&node->is_dequeued, 1) == 0) {
 				datum = node->datum;

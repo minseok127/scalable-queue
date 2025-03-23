@@ -4,6 +4,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdlib>
+#include <iomanip>
 
 #include "../scalable_queue.h"
 
@@ -92,6 +93,7 @@ int main(int argc, char* argv[])
     // 큐 해제
     scq_destroy(scq);
 
+	std::cout << std::fixed << std::setprecision(0);
     std::cout << "=== Benchmark Results ===\n";
     std::cout << "Producers: " << numProducers
               << ", Consumers: " << numConsumers
