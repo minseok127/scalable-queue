@@ -174,36 +174,26 @@ void *scq_dequeue(struct scalable_queue *scq)
 	struct scq_head_version *head_version = NULL;
 	struct scq_node *node = NULL;
 	int not_dequeued_flag = 0;
-	bool found = false;
 	void *datum = NULL;
 
 	if (atomic_load(&scq->head_init_flag) == 0)
 		return NULL;
 	
-	for (;;) {
-		head_version
-			= (struct scq_head_version *)atomsnap_acquire_version(scq->head);
+	head_version
+		= (struct scq_head_version *)atomsnap_acquire_version(scq->head);
 
-		node = head_version->head_node;
+	node = head_version->head_node;
 
-		while (atomic_load(&head_version->tail_node) == NULL && node != NULL) {
-			if (atomic_load(&node->is_dequeued) == 0) {
-				if (atomic_compare_exchange_strong(&node->is_dequeued,
-						&not_dequeued_flag, 1)) {
-					datum = node->datum;
-					found = true;
-					break;
-				}
+	while (node != NULL) {
+		if (atomic_load(&node->is_dequeued) == 0) {
+			if (atomic_compare_exchange_strong(&node->is_dequeued,
+					&not_dequeued_flag, 1)) {
+				datum = node->datum;
+				break;
 			}
-
-			node = node->next;
 		}
 
-		if (found || node == NULL) {
-			break;
-		}
-		
-		atomsnap_release_version((struct atomsnap_version *)head_version);
+		node = node->next;
 	}
 
 	if (node != NULL && node->next != NULL) {
