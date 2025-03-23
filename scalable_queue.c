@@ -189,6 +189,7 @@ retry:
 		if (atomic_load(&node->is_dequeued) == 0) {
 			if (atomic_exchange(&node->is_dequeued, 1) == 0) {
 				datum = node->datum;
+				found = true;
 				break;
 			}
 		}
