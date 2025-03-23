@@ -10,7 +10,7 @@
 struct scq_node {
 	struct scq_node *next;
 	void *datum;
-	int is_dequeued;
+	_Atomic int is_dequeued;
 };
 
 struct scq_head_version {
@@ -173,7 +173,6 @@ void *scq_dequeue(struct scalable_queue *scq)
 {
 	struct scq_head_version *head_version = NULL;
 	struct scq_node *node = NULL;
-	int not_dequeued_flag = 0;
 	void *datum = NULL;
 
 	if (atomic_load(&scq->head_init_flag) == 0)
@@ -186,8 +185,7 @@ void *scq_dequeue(struct scalable_queue *scq)
 
 	while (node != NULL) {
 		if (atomic_load(&node->is_dequeued) == 0) {
-			if (atomic_compare_exchange_strong(&node->is_dequeued,
-					&not_dequeued_flag, 1)) {
+			if (atomic_exchange(&node->is_dequeued, 1) == 0) {
 				datum = node->datum;
 				break;
 			}
