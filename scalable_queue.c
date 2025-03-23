@@ -139,17 +139,13 @@ void scq_enqueue(struct scalable_queue *scq, void *datum)
 		atomic_store(&scq->head_init_flag, 1);
 	} else {
 		prev_tail->next = node;
-
-		while (atomic_load(&scq->head_init_flag) == 0) {
-			__asm__ __volatile__("pause");
-		}
 	}
 }
 
 static void adjust_head(struct scalable_queue *scq,
 	struct scq_head_version *prev_head_version, struct scq_node *new_head_node,
 	struct scq_node *tail_node_of_prev_head_version)
-{
+{	
 	struct scq_head_version *new_head_version
 		= (struct scq_head_version *)atomsnap_make_version(scq->head, NULL);
 
@@ -169,6 +165,7 @@ static void adjust_head(struct scalable_queue *scq,
 	__sync_synchronize();
 	atomic_store(&prev_head_version->head_version_next, new_head_version);
 	atomic_store(&prev_head_version->tail_node, tail_node_of_prev_head_version);
+	assert(prev_head_version->head_node->is_dequeued == 1);
 }
 
 void *scq_dequeue(struct scalable_queue *scq)
@@ -190,7 +187,7 @@ void *scq_dequeue(struct scalable_queue *scq)
 
 		while (atomic_load(&head_version->tail_node) == NULL && node != NULL) {
 			if (atomic_load(&node->is_dequeued) == 0) {
-				if (atomic_compare_exchange_weak(&node->is_dequeued,
+				if (atomic_compare_exchange_strong(&node->is_dequeued,
 						&not_dequeued_flag, 1)) {
 					datum = node->datum;
 					found = true;
