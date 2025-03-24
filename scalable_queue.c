@@ -268,6 +268,8 @@ void scq_destroy(struct scalable_queue *scq)
 
 	atomsnap_destroy_gate(scq->head);
 
+	/* XXX scq->tail ? */
+
 	free(scq);
 }
 
