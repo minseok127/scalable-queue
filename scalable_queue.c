@@ -350,8 +350,12 @@ static struct scq_node *scq_allocate_node(struct scalable_queue *scq)
 		node = node_pool->base_addr
 			+ HUGE_PAGE_SIZE * node_pool->current_huge_page_idx
 			+ sizeof(struct scq_node) * node_pool->current_node_idx;
+		assert(node->state == SCQ_NODE_FREE);
+
 		node->is_node_pool = true;
+
 		node_pool->current_node_idx += 1;
+
 		return node;
 	}
 
@@ -381,6 +385,8 @@ static struct scq_node *scq_allocate_node(struct scalable_queue *scq)
 
 	node = node_pool->base_addr
 		+ HUGE_PAGE_SIZE * new_huge_page_idx + sizeof(struct scq_node);
+	assert(node->state == SCQ_NODE_FREE);
+
 	node->is_node_pool = true;
 
 	node_pool->current_huge_page_idx = new_huge_page_idx;
