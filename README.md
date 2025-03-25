@@ -1,7 +1,7 @@
 # Scalable Queue (scq)
-- Linked list queue
-- Multi-producer, multi-consumer
-- RCU based memory management
+- The enqueue logic uses only a single atomic instruction.
+- The dequeue logic uses only two atomic instructions.
+- Multi-producer, multi-consumer linked list queue.
 
 # Build
 ```
@@ -21,9 +21,11 @@ struct scalable_queue *scq_init(void);
 
 void scq_destroy(struct scalable_queue *scq);
 
-void scq_enqueue(struct scalable_queue *scq, void *datum);
+/* datum => scalar or pointer */
+void scq_enqueue(struct scalable_queue *scq, uint64_t datum);
 
-void *scq_dequeue(struct scalable_queue *scq);
+/* return => found (true / false), (*datum) => deqeueued datum */
+bool scq_dequeue(struct scalable_queue *scq, uint64_t *datum);
 ```
 
 # Performance
@@ -39,29 +41,11 @@ void *scq_dequeue(struct scalable_queue *scq);
 	- Compiler: GCC 13.3.0
 	- Build System: GNU Make 4.3
 
-## Single Producer, Multiple Consumer
-
-| # of Producer / Consumer  | Enqueue Throughput (ops/sec) |  Dequeue Throughput (ops/sec)  |
-|:-------------------------:|:----------------------------:|:------------------------------:|
-|	      1 / 1         |          10,978,814	   |            6,114,780           |
-|	      1 / 2 	    |          10,732,562          |            4,888,025           |
-|	      1 / 4 	    |           8,253,449          |            6,338,300           |
-|	      1 / 8 	    |           6,840,558          |            6,840,558           |
-
-## Multiple Producer, Single Consumer
-
-| # of Producer / Consumer  | Enqueue Throughput (ops/sec) |  Dequeue Throughput (ops/sec)  |
-|:-------------------------:|:----------------------------:|:------------------------------:|
-|	      1 / 1         |          10,978,814	   |            6,114,780           |
-|	      2 / 1         |          13,212,655	   |            4,518,071           |
-|	      4 / 1         |          15,278,075	   |            2,534,580           |
-|	      8 / 1         |          16,728,016	   |            1,304,189           |
-
 ## Multiple Producer, Multiple Consumer
 
 | # of Producer / Consumer  | Enqueue Throughput (ops/sec) |  Dequeue Throughput (ops/sec)  |
 |:-------------------------:|:----------------------------:|:------------------------------:|
-|	      1 / 1         |          10,978,814	   |            6,114,780           |
-|	      2 / 2         |          11,491,568	   |            3,845,078           |
-|	      4 / 4         |          12,135,869	   |            4,384,864           |
-|	      8 / 8         |          13,659,815	   |            5,259,186           |
+|	      1 / 1         |          10,728,590	   |           10,728,590           |
+|	      2 / 2         |           9,772,263	   |            9,772,262           |
+|	      4 / 4         |          11,710,232	   |           11,707,917           |
+|	      8 / 8         |          14,310,577	   |           14,310,561           |
