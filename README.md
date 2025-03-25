@@ -1,7 +1,7 @@
 # Scalable Queue (scq)
 - The enqueue logic uses only a single atomic instruction.
 - The dequeue logic uses only two atomic instructions.
-- Multi-producer, multi-consumer linked list queue.
+- Multi-producer, multi-consumer concurrent linked list queue.
 
 # Build
 ```
