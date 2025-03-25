@@ -42,6 +42,9 @@ struct scq_dequeued_node_list {
 
 struct scq_tls_data {
 	struct scq_dequeued_node_list dequeued_node_list;
+	struct scq_node *tail;
+	struct scq_node sentinel;
+	int last_dequeued_thread_idx;
 };
 
 _Thread_local static struct scq_tls_data *tls_data_ptr_arr[MAX_SCQ_NUM];
@@ -54,8 +57,6 @@ _Thread_local static struct scq_tls_data *tls_data_ptr_arr[MAX_SCQ_NUM];
  * @scq_id: global id of the scalable_queue
  */
 struct scalable_queue {
-	struct scq_node *tail;
-	struct scq_node sentinel;
 	struct scq_tls_data *tls_data_ptr_list[MAX_SCQ_NUM];
 	pthread_spinlock_t spinlock;
 	int scq_id;
@@ -76,8 +77,6 @@ struct scalable_queue *scq_init(void)
 		return NULL;
 	}
 
-	scq->sentinel.next = NULL;
-	scq->tail = &scq->sentinel;
 	scq->thread_num = 0;
 
 	if (pthread_spin_init(&scq->spinlock, PTHREAD_PROCESS_PRIVATE) != 0) {
@@ -136,14 +135,6 @@ void scq_destroy(struct scalable_queue *scq)
 
 	atomic_store(&global_scq_id_flag, 0);
 
-	/* Free shared linked list */
-	node = scq->sentinel.next;
-	while (node != NULL) {
-		prev_node = node;
-		node = node->next;
-		free(prev_node);
-	}
-
 	/* Free thread-local linked lists */
 	for (int i = 0; i < scq->thread_num; i++) {
 		tls_data_ptr = scq->tls_data_ptr_list[i];
@@ -160,6 +151,14 @@ void scq_destroy(struct scalable_queue *scq)
 			free(prev_node);
 		}
 		free(dequeued_node_list->tail);
+
+		node = tls_data_ptr->sentinel.next;
+		while (node != NULL) {
+			prev_node = node;
+			node = node->next;
+			free(prev_node);
+		}
+
 		free(tls_data_ptr);
 	}
 
@@ -186,6 +185,10 @@ static void check_and_init_scq_tls_data(struct scalable_queue *scq)
 	tls_data->dequeued_node_list.head = NULL;
 	tls_data->dequeued_node_list.tail = NULL;
 
+	tls_data->sentinel.next = NULL;
+	tls_data->tail = &tls_data->sentinel;
+	tls_data->last_dequeued_thread_idx = 0;
+
 	pthread_spin_lock(&scq->spinlock);
 	scq->tls_data_ptr_list[scq->thread_num] = tls_data;
 	scq->thread_num++;
@@ -199,16 +202,18 @@ static void check_and_init_scq_tls_data(struct scalable_queue *scq)
  */
 void scq_enqueue(struct scalable_queue *scq, uint64_t datum)
 {
+	struct scq_tls_data *tls_data = NULL;
 	struct scq_node *node = NULL;
 	struct scq_node *prev_tail = NULL;
 
 	check_and_init_scq_tls_data(scq);
+	tls_data = tls_data_ptr_arr[scq->scq_id];
 
 	node = (struct scq_node *)malloc(sizeof(struct scq_node));
 	node->datum = datum;
 	node->next = NULL;
 
-	prev_tail = atomic_exchange(&scq->tail, node);
+	prev_tail = atomic_exchange(&tls_data->tail, node);
 	assert(prev_tail != NULL);
 
 	__sync_synchronize();
@@ -216,50 +221,17 @@ void scq_enqueue(struct scalable_queue *scq, uint64_t datum)
 }
 
 /*
- * Dequeue the datum from the scalable_queue.
- * Return true if there is dequeued node.
+ * Dequeue node from thread local linked list.
+ * If the list is empty, return false.
  */
-bool scq_dequeue(struct scalable_queue *scq, uint64_t *datum)
+static bool pop_from_tls_list(struct scq_dequeued_node_list *tls_node_list,
+	uint64_t *datum)
 {
-	struct scq_dequeued_node_list *tls_node_list = NULL;
-	struct scq_tls_data *tls_data = NULL;
 	struct scq_node *node = NULL;
 
-	check_and_init_scq_tls_data(scq);
-
-	tls_data = tls_data_ptr_arr[scq->scq_id];
-	tls_node_list = &tls_data->dequeued_node_list;
-
-	if (tls_node_list->head != NULL) {
-		node = tls_node_list->head;
-		*datum = node->datum;
-
-		if (node == tls_node_list->tail) {
-			tls_node_list->head = NULL;
-			tls_node_list->tail = NULL;
-		} else {
-			while (node->next == NULL) {
-				__asm__ __volatile__("pause");
-			}
-
-			tls_node_list->head = node->next;
-		}
-
-		free(node);
-
-		return true;
-	}
-
-	if (scq->sentinel.next == NULL) {
-		return false;
-	}
-
-	tls_node_list->head = atomic_exchange(&scq->sentinel.next, NULL);
 	if (tls_node_list->head == NULL) {
 		return false;
 	}
-
-	tls_node_list->tail = atomic_exchange(&scq->tail, &scq->sentinel);
 
 	node = tls_node_list->head;
 	*datum = node->datum;
@@ -278,4 +250,52 @@ bool scq_dequeue(struct scalable_queue *scq, uint64_t *datum)
 	free(node);
 
 	return true;
+}
+
+/*
+ * Dequeue the datum from the scalable_queue.
+ * Return true if there is dequeued node.
+ */
+bool scq_dequeue(struct scalable_queue *scq, uint64_t *datum)
+{
+	struct scq_dequeued_node_list *tls_node_list = NULL;
+	struct scq_tls_data *tls_data = NULL, *tls_data_enq_thread = NULL;
+	int thread_idx = 0;
+
+	check_and_init_scq_tls_data(scq);
+
+	tls_data = tls_data_ptr_arr[scq->scq_id];
+	tls_node_list = &tls_data->dequeued_node_list;
+
+	if (pop_from_tls_list(tls_node_list, datum)) {
+		return true;
+	}
+
+	for (int i = 0; i < scq->thread_num; i++ ) {
+		thread_idx = (tls_data->last_dequeued_thread_idx + i) % scq->thread_num;
+		tls_data_enq_thread = scq->tls_data_ptr_list[thread_idx];
+
+		if (tls_data_enq_thread->sentinel.next == NULL) {
+			continue;
+		}
+
+		tls_node_list->head
+			= atomic_exchange(&tls_data_enq_thread->sentinel.next, NULL);
+
+		if (tls_node_list->head == NULL) {
+			continue;
+		}
+
+		tls_node_list->tail
+			= atomic_exchange(&tls_data_enq_thread->tail,
+				&tls_data_enq_thread->sentinel);
+
+		pop_from_tls_list(tls_node_list, datum);
+
+		tls_data->last_dequeued_thread_idx = thread_idx;
+
+		return true;
+	}
+
+	return false;
 }
