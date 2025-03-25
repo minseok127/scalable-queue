@@ -16,13 +16,9 @@ struct scalable_queue *scq_init(void);
 
 void scq_destroy(struct scalable_queue *scq);
 
-void scq_create_tls_node_pool(struct scalable_queue *scq);
+void scq_enqueue(struct scalable_queue *scq, uint64_t datum);
 
-void scq_destroy_tls_node_pool(struct scalable_queue *scq);
-
-void scq_enqueue(struct scalable_queue *scq, void *datum);
-
-void *scq_dequeue(struct scalable_queue *scq);
+bool scq_dequeue(struct scalable_queue *scq, uint64_t *datum);
 
 #ifdef __cplusplus
 }

@@ -7,9 +7,6 @@ SRC := producer_consumer.cpp
 TARGET2 := producer_consumer_correctness
 SRC2 := producer_consumer_correctness.cpp
 
-TARGET3 := producer_consumer_multiqueue
-SRC3 := producer_consumer_multiqueue.cpp
-
 LDFLAGS += -L..
 LDLIBS += -lscq
 
@@ -20,9 +17,6 @@ $(TARGET): $(SRC)
 
 $(TARGET2): $(SRC2)
 	$(CXX) $(CXXFLAGS) -o $(TARGET2) $(SRC2) $(LDFLAGS) -static $(LDLIBS)
-
-$(TARGET3): $(SRC3)
-	$(CXX) $(CXXFLAGS) -o $(TARGET3) $(SRC3) $(LDFLAGS) -static $(LDLIBS)
 
 clean:
 	rm -f $(TARGET) $(TARGET2) $(TARGET3)

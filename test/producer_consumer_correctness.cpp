@@ -19,7 +19,7 @@ void producerFunc(struct scalable_queue *scq)
 {
 	for (uint64_t i = 1; i <= VAL_COUNT; i++) {
         // 간단히 정수 하나를 enqueue한다고 가정
-        scq_enqueue(scq, (void*)i);
+        scq_enqueue(scq, i);
 
         // 카운트 증가
         g_enqueueCount.fetch_add(1, std::memory_order_relaxed);
@@ -34,11 +34,12 @@ void producerFunc(struct scalable_queue *scq)
 void consumerFunc(struct scalable_queue *scq)
 {
     while (g_running.load(std::memory_order_relaxed)) {
-        void *item = scq_dequeue(scq);
-        if ((uint64_t)item >= 1 && (uint64_t)item <= VAL_COUNT) {
+		uint64_t datum;
+        bool found = scq_dequeue(scq, &datum);
+        if (found && (uint64_t)datum >= 1 && (uint64_t)datum <= VAL_COUNT) {
             // consumer가 성공적으로 아이템을 받았다면, 카운트 증가
             g_dequeueCount.fetch_add(1, std::memory_order_relaxed);
-			arr[(uint64_t)item - 1].fetch_add(1, std::memory_order_relaxed);
+			arr[(uint64_t)datum - 1].fetch_add(1, std::memory_order_relaxed);
         }
     }
 }

@@ -14,7 +14,7 @@ else
 	$(error Unknown BUILD_MODE: $(BUILD_MODE). Use 'relase' or 'debug')
 endif
 
-SRCS = scalable_queue.c atomsnap.c
+SRCS = scalable_queue.c
 
 OBJS = $(SRCS:.c=.o)
 

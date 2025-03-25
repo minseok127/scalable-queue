@@ -15,25 +15,22 @@ static std::atomic<long long> g_dequeueCount{0};    // 전체 dequeue 횟수
 // 프로듀서 스레드 함수
 void producerFunc(struct scalable_queue *scq)
 {
-	scq_create_tls_node_pool(scq);
-
     while (g_running.load(std::memory_order_relaxed)) {
         // 간단히 정수 하나를 enqueue한다고 가정
-        scq_enqueue(scq, (void*)42);
+        scq_enqueue(scq, 42);
 
         // 카운트 증가
         g_enqueueCount.fetch_add(1, std::memory_order_relaxed);
     }
-
-	scq_destroy_tls_node_pool(scq);
 }
 
 // 컨슈머 스레드 함수
 void consumerFunc(struct scalable_queue *scq)
 {
     while (g_running.load(std::memory_order_relaxed)) {
-        void *item = scq_dequeue(scq);
-        if ((uint64_t)item == 42) {
+		uint64_t datum;
+        bool found = scq_dequeue(scq, &datum);
+        if (found && datum == 42) {
             // consumer가 성공적으로 아이템을 받았다면, 카운트 증가
             g_dequeueCount.fetch_add(1, std::memory_order_relaxed);
         }
