@@ -40,6 +40,10 @@ struct scq_dequeued_node_list {
 	struct scq_node *tail;
 };
 
+/*
+ * New nodes are inserted into tail.
+ * thread idx is used to determine the start index of round-robin.
+ */
 struct scq_tls_data {
 	struct scq_dequeued_node_list dequeued_node_list;
 	struct scq_node *tail;
@@ -51,13 +55,13 @@ _Thread_local static struct scq_tls_data *tls_data_ptr_arr[MAX_SCQ_NUM];
 
 /*
  * scalable_queue - main data structure to manage queue
- * @tail: point where a new node is inserted into the linked list
- * @sentinel: dummy node
+ * @tls_data_ptr_list: each thread's scq_tls_data pointers
  * @spinlock: spinlock to manage thread-local data structures
  * @scq_id: global id of the scalable_queue
+ * @thread_num: number of threads
  */
 struct scalable_queue {
-	struct scq_tls_data *tls_data_ptr_list[MAX_SCQ_NUM];
+	struct scq_tls_data *tls_data_ptr_list[MAX_THREAD_NUM];
 	pthread_spinlock_t spinlock;
 	int scq_id;
 	int thread_num;
