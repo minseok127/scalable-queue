@@ -13,8 +13,8 @@
  * @datum: 8 bytes scalar or pointer
  *
  * When scq_enqueue is called, an scq_node is allocated and inserted into the
- * linked list queue. When scq_dequeue is called, the state is change to the
- * SCQ_NODE_DEQUEUED, and its memory is managed based on RCU.
+ * linked list queue. When scq_dequeue is called, the nodes are detached from
+ * the shared linked list and attached into thread-local linked list.
  */
 struct scq_node {
 	struct scq_node *next;
