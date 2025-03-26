@@ -298,13 +298,14 @@ void scq_enqueue(struct scalable_queue *scq, uint64_t datum)
 	tls_data = tls_data_ptr_arr[scq->scq_id];
 
 	node = scq_allocate_node(tls_data);
+
 	node->datum = datum;
 	node->next = NULL;
+	__sync_synchronize();
 
 	prev_tail = atomic_exchange(&tls_data->shared_tail, node);
 	assert(prev_tail != NULL);
 
-	__sync_synchronize();
 	prev_tail->next = node;
 }
 
@@ -320,11 +321,11 @@ static void scq_free_nodes(struct scalable_queue *scq,
 	struct scq_node *prev_tail = NULL;
 
 	tail_node->next = NULL;
+	__sync_synchronize();
 
 	prev_tail = atomic_exchange(&free_node_list->shared_tail, tail_node);
 	assert(prev_tail != NULL);
 
-	__sync_synchronize();
 	prev_tail->next = initial_head_node;
 }
 
