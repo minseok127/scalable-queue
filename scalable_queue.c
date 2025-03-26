@@ -332,7 +332,7 @@ static void scq_free_nodes(struct scalable_queue *scq,
  * Dequeue node from thread local linked list.
  * If the list is empty, return false.
  */
-static bool pop_from_tls_list(struct scalable_queue *scq,
+static bool pop_from_dequeued_list(struct scalable_queue *scq,
 	struct scq_dequeued_node_list *dequeued_node_list,
 	uint64_t *datum, int enqueue_thread_idx)
 {
@@ -378,7 +378,7 @@ bool scq_dequeue(struct scalable_queue *scq, uint64_t *datum)
 	tls_data = tls_data_ptr_arr[scq->scq_id];
 	dequeued_node_list = &tls_data->dequeued_node_list;
 
-	if (pop_from_tls_list(scq, dequeued_node_list, datum,
+	if (pop_from_dequeued_list(scq, dequeued_node_list, datum,
 			tls_data->last_dequeued_thread_idx)) {
 		return true;
 	}
@@ -406,7 +406,7 @@ bool scq_dequeue(struct scalable_queue *scq, uint64_t *datum)
 
 		tls_data->last_dequeued_thread_idx = thread_idx;
 
-		pop_from_tls_list(scq, dequeued_node_list, datum, thread_idx);
+		pop_from_dequeued_list(scq, dequeued_node_list, datum, thread_idx);
 
 		return true;
 	}
