@@ -247,7 +247,6 @@ bool scq_dequeue(struct scalable_queue *scq, uint64_t *datum)
 {
 	struct scq_head_version *head_version = NULL;
 	struct scq_node *node = NULL;
-	void *datum = NULL;
 	bool found = false;
 
 	/* Not yet initialized */
