@@ -162,25 +162,25 @@ void scq_destroy(struct scalable_queue *scq)
 		dequeued_node_list = &tls_data_ptr->dequeued_node_list;
 		free_node_list = &tls_data_ptr->free_node_list;
 
-		if (dequeued_node_list->local_head == NULL) {
-			continue;
+		if (dequeued_node_list->local_initial_head != NULL) {
+			node = dequeued_node_list->local_initial_head;
+			while (node != dequeued_node_list->local_tail) {
+				prev_node = node;
+				node = node->next;
+				free(prev_node);
+			}
+			free(dequeued_node_list->local_tail);
 		}
 
-		node = dequeued_node_list->local_head;
-		while (node != dequeued_node_list->local_tail) {
-			prev_node = node;
-			node = node->next;
-			free(prev_node);
+		if (free_node_list->local_head != NULL) {
+			node = free_node_list->local_head;
+			while (node != free_node_list->local_tail) {
+				prev_node = node;
+				node = node->next;
+				free(prev_node);
+			}
+			free(free_node_list->local_tail);
 		}
-		free(dequeued_node_list->local_tail);
-
-		node = free_node_list->local_head;
-		while (node != free_node_list->local_tail) {
-			prev_node = node;
-			node = node->next;
-			free(prev_node);
-		}
-		free(free_node_list->local_tail);
 
 		node = free_node_list->shared_sentinel.next;
 		while (node != NULL) {
