@@ -19,7 +19,7 @@
  */
 struct scq_node {
 	struct scq_node *next;
-	void *datum;
+	uint64_t datum;
 	_Atomic int is_dequeued;
 };
 
@@ -213,7 +213,7 @@ void scq_destroy(struct scalable_queue *scq)
 /*
  * Enqueue the given datum into the queue.
  */
-void scq_enqueue(struct scalable_queue *scq, void *datum)
+void scq_enqueue(struct scalable_queue *scq, uint64_t datum)
 {
 	struct scq_node *node, *prev_tail;
 	struct scq_head_version *head;
@@ -242,9 +242,8 @@ void scq_enqueue(struct scalable_queue *scq, void *datum)
 
 /*
  * Dequeue the datum from the scalable_queue.
- * Return NULL if there is no data.
  */
-void *scq_dequeue(struct scalable_queue *scq)
+bool scq_dequeue(struct scalable_queue *scq, uint64_t *datum)
 {
 	struct scq_head_version *head_version = NULL;
 	struct scq_node *node = NULL;
@@ -253,7 +252,7 @@ void *scq_dequeue(struct scalable_queue *scq)
 
 	/* Not yet initialized */
 	if (atomic_load(&scq->head_init_flag) == 0)
-		return NULL;
+		return false;
 	
 retry:
 
@@ -273,7 +272,7 @@ retry:
 	while (node != NULL && atomic_load(&head_version->tail_node) == NULL) {
 		if (atomic_load(&node->is_dequeued) == 0) {
 			if (atomic_exchange(&node->is_dequeued, 1) == 0) {
-				datum = node->datum;
+				*datum = node->datum;
 				found = true;
 				break;
 			}
@@ -293,5 +292,5 @@ retry:
 
 	atomsnap_release_version((struct atomsnap_version *)head_version);
 
-	return datum;
+	return found;
 }
