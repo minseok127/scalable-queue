@@ -67,9 +67,9 @@ Both scalable_queue (default implementation) and concurrentqueue do not guarante
 
 ## Comparison between relaxed queue (default) and fully linearizable queue
 
-| # of Producer / Consumer  |      SCQ Enqueue (ops/sec)   |      SCQ Dequeue (ops/sec)     |   SCQ (lineariable) Enqueue (ops/sec)   |      SCQ (lineariable) Dequeue (ops/sec)     |
+| # of Producer / Consumer  |      SCQ Enqueue (ops/sec)   |      SCQ Dequeue (ops/sec)     |   SCQ (linearizable) Enqueue (ops/sec)  |      SCQ (linearizable) Dequeue (ops/sec)    |
 |:-------------------------:|:----------------------------:|:------------------------------:|:---------------------------------------:|:--------------------------------------------:|
 |	      1 / 1         |          15,373,582	   |           15,373,582           |                  9,640,310	      |                    4,256,879                 |
 |	      2 / 2         |          16,020,885	   |           16,020,884           |                 10,876,095	      |                    3,774,518                 |
-|	      4 / 4         |          17,484,357	   |           17,484,354           |                 12,612,972	      |                    4,556,463                |
-|	      8 / 8         |          21,610,680	   |           21,610,678           |                 14,039,995	      |                    6,256,954                |
+|	      4 / 4         |          17,484,357	   |           17,484,354           |                 12,612,972	      |                    4,556,463                 |
+|	      8 / 8         |          21,610,680	   |           21,610,678           |                 14,039,995	      |                    6,256,954                 |
