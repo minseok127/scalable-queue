@@ -4,11 +4,11 @@ Multi-producer, multi-consumer concurrent linked list queue.
 
 This repository contains two queue implementations:
 
-1. Fully Linearizable Queue (scalable-queue/linearizable):
+1. Fully Linearizable Queue (scalable-queue/linearizable/scalable_queue.c):
 	- Provides a fully linearizable (strictly FIFO) queue implementation.
 	- Guarantees that data enqueued first across all threads is dequeued first, preserving global FIFO order.
 
-2. Relaxed Queue (default) (scalable-queue/):
+2. Relaxed Queue (default) (scalable-queue/scalable_queue.c):
 	- Designed for enhanced scalability.
 	- Each enqueue thread maintains its own independent queue.
 	- Dequeue threads collect data in bulk from these per-thread queues.
