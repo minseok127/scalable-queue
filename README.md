@@ -52,6 +52,16 @@ bool scq_dequeue(struct scalable_queue *scq, uint64_t *datum);
 	- Compiler: GCC 13.3.0
 	- Build System: GNU Make 4.3
 
+## Test code
+```
+$ git clone https://github.com/minseok127/scalable-queue.git
+$ cd scalable-queue
+$ git checkout test
+$ make
+$ cd test
+$ make
+```
+
 ## Comparison with other concurrent queue library
 
 [concurrentqueue](https://github.com/cameron314/concurrentqueue): A fast multi-producer, multi-consumer lock-free queue for C++.
