@@ -36,11 +36,11 @@ struct scq_node {
  * nodes are not immediately freed but are given a grace period, which is
  * managed using the atomsnap library.
  *
- * When the tail is updated, a range of nodes covering the lifetime of the
- * previous tail is created. If this range is at the end of the linked list, it
+ * When the head is moved, a range of nodes covering the lifetime of the
+ * previous head is created. If this range is at the end of the linked list, it
  * indicates that other threads no longer traverse this range of nodes.
  *
- * To verify this, each tail version is also linked via a pointer, and
+ * To verify this, each head version is also linked via a pointer, and
  * this pointer is used to determine whether the current version represents the
  * last segment of the linked list.
  */
