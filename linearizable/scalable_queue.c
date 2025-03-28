@@ -135,7 +135,7 @@ free_head_version:
  *
  * Calling atomsnap_compare_exchange_version() in this function starts the grace
  * period for the previous head version. The last thread to release this old
- * head version will execute aru_tail_version_free().
+ * head version will execute scq_head_version_free().
  *
  * The reference to the old head version is released after this function
  * returns. This ensures that the deallocation for this old version will not be
