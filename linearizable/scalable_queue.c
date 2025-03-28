@@ -24,7 +24,7 @@ struct scq_node {
 };
 
 /*
- * scq_tail_version - Data structure to cover the lifetime of the nodes.
+ * scq_head_version - Data structure to cover the lifetime of the nodes.
  * @version: atomsnap_version to manage grace-period
  * @head_version_prev: previously created tail version
  * @head_version_next: next head version
