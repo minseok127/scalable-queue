@@ -13,7 +13,7 @@ This repository contains two queue implementations:
 	- Each enqueue thread maintains its own independent queue.
 	- Each dequeue thread also maintains their own independent queue.
 	- Dequeue threads collect data in bulk from the enqueue threads' queues to their thread-local queues.
-	- For shared resources, the enqueue thread uses a single atomic instruction, while the dequeue thread uses two branche instructions and two atomic instructions.
+	- For shared resources, the enqueue thread uses a single atomic instruction, while the dequeue thread uses two branch instructions and two atomic instructions.
 	- Global FIFO order (linearizability) may not be strictly preserved.
 
 # Build
