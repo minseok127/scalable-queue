@@ -11,7 +11,9 @@ This repository contains two queue implementations:
 2. Relaxed Queue (default) => scalable-queue/scalable_queue.c
 	- Designed for enhanced scalability.
 	- Each enqueue thread maintains its own independent queue.
-	- Dequeue threads collect data in bulk from these per-thread queues.
+	- Each dequeue thread also maintains their own independent queue.
+	- Dequeue threads collect data in bulk from the enqueue threads' queues to their thread-local queues.
+	- For shared resources, the enqueue thread uses a single atomic instruction, while the dequeue thread uses two branche instructions and two atomic instructions.
 	- Global FIFO order (linearizability) may not be strictly preserved.
 
 # Build
