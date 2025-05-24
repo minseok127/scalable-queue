@@ -6,7 +6,7 @@ This repository contains two queue implementations:
 
 1. Fully Linearizable Queue => scalable-queue/linearizable/scalable_queue.c
 	- Provides a fully linearizable (strictly FIFO) queue implementation without lock.
-	- The head of the queue (i.e., the point where dequeue occurs) is managed using versioning.
+	- The head of the queue (i.e., the point where dequeue occurs) is managed through versioning.
 		- Traversal of the queue begins by acquiring a reference to the latest head version.
 		- The last thread referencing the oldest head version performs memory deallocation, ensuring safe memory access.
 	- Guarantees that data enqueued first across all threads is dequeued first, preserving global FIFO order.
