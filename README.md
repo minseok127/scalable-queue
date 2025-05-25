@@ -1,4 +1,4 @@
-# Multi-producer, multi-consumer concurrent linked list queue
+# Multi-producer, multi-consumer linked list queue
 
 This repository contains two queue implementations:
 
