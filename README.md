@@ -12,12 +12,9 @@ This repository contains two queue implementations:
 2. Relaxed Queue (default) => scalable-queue/scalable_queue.c
 	- Designed for enhanced scalability.
 	- Global FIFO order (linearizability) may not be strictly preserved.
-	- Each enqueue thread maintains its own independent queue.
-	- Each dequeue thread also maintains their own independent queue.
-	- Dequeue threads collect data in bulk from the enqueue threads' queues to their thread-local queues.
-		- They perform dequeue operations from their local queues, and when the local queue becomes empty, they fetch a new batch of data in bulk from the enqueue-side queues and transfer it to their local queue.
-		- Access to shared resources is minimized in most cases, significantly reducing the use of atomic instructions.
-	- For shared resources, the enqueue thread uses a single atomic instruction, while the dequeue thread uses two branch instructions and two atomic instructions.
+	- Each thread maintains its own independent queue.
+		- Dequeue threads perform dequeue operations from their local queues, and when the local queue becomes empty, they detach a new batch of data in bulk from the enqueue-side queues and attach it to their local queue.
+		- When inserting a new node, the enqueue thread uses a single atomic instruction, while the dequeue thread uses two branch instructions and two atomic instructions to detach a batch from the shared queue.
 
 # Build
 ```
