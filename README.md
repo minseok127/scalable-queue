@@ -15,7 +15,7 @@ This repository contains two queue implementations:
 	- Each enqueue thread maintains its own independent queue.
 	- Each dequeue thread also maintains their own independent queue.
 	- Dequeue threads collect data in bulk from the enqueue threads' queues to their thread-local queues.
-		- They perform dequeue operations from their local queues, and when the local queue becomes empty, they fetch a new data in bulk from the enqueue-side queues and transfer it to their local queue.
+		- They perform dequeue operations from their local queues, and when the local queue becomes empty, they fetch a new batch of data in bulk from the enqueue-side queues and transfer it to their local queue.
 		- Access to shared resources is minimized in most cases, significantly reducing the use of atomic instructions.
 	- For shared resources, the enqueue thread uses a single atomic instruction, while the dequeue thread uses two branch instructions and two atomic instructions.
 
