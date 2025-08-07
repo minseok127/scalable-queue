@@ -1,3 +1,5 @@
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/minseok127/scalable-queue)
+
 # Multi-producer, multi-consumer linked list queue
 
 This repository contains two queue implementations:
